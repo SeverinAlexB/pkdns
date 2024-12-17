@@ -1,9 +1,6 @@
 use crate::{anydns::{CustomHandlerError, DnsSocket, DnsSocketError, RateLimiter, RateLimiterBuilder}, pubkey_parser::parse_pkarr_uri, query_matcher::create_domain_not_found_reply};
-use dashmap::DashMap;
 use std::{
-    net::{IpAddr, SocketAddr},
-    num::NonZeroU32,
-    sync::Arc,
+    collections::HashMap, net::{IpAddr, SocketAddr}, num::NonZeroU32, sync::Arc
 };
 use tokio::sync::Mutex;
 
@@ -117,7 +114,7 @@ pub struct PkarrResolver {
     /**
      * Locks to use to update pkarr packets. This avoids concurrent updates.
      */
-    lock_map: Arc<DashMap<PublicKey, Arc<Mutex<()>>>>,
+    lock_map: Arc<Mutex<HashMap<PublicKey, Arc<Mutex<()>>>>>,
     settings: ResolverSettings,
     rate_limiter: Arc<RateLimiter>,
 }
@@ -166,7 +163,7 @@ impl PkarrResolver {
         Self {
             client: client.as_async(),
             cache: PkarrPacketLruCache::new(Some(settings.cache_mb)),
-            lock_map: Arc::new(DashMap::new()),
+            lock_map: Arc::new(Mutex::new(HashMap::new())),
             rate_limiter: Arc::new(limiter.build()),
             settings,
         }
@@ -212,22 +209,26 @@ impl PkarrResolver {
 
     /// Lookup DHT to pull pkarr packet. Will not check the cache first but store any new value in the cache. Returns cached value if lookup fails.
     async fn lookup_dht_and_cache(&mut self, pubkey: PublicKey) -> Result<CacheItem, PkarrResolverError> {
-        let mutex = self
-            .lock_map
+        tracing::info!("Before map mutex Lookup [{pubkey}] on the DHT.");
+        let mut map_lock = self.lock_map.lock().await;
+        let mutex = map_lock
             .entry(pubkey.clone())
             .or_insert_with(|| Arc::new(Mutex::new(())));
+        tracing::info!("After map before key mutex Lookup [{pubkey}] on the DHT.");
         let _guard = mutex.lock().await;
+        tracing::info!("After key mutex Lookup [{pubkey}] on the DHT.");
 
         if let Some(cache) = self.cache.get(&pubkey).await {
             if !self.is_refresh_needed(&cache) {
                 // Value got updated in the meantime while aquiring the lock.
-                tracing::trace!("Refresh for [{pubkey}] not needed. Value got updated in the meantime.");
+                tracing::info!("Refresh for [{pubkey}] not needed. Value got updated in the meantime.");
                 return Ok(cache);
             }
         }
 
-        tracing::trace!("Lookup [{pubkey}] on the DHT.");
+        tracing::info!("Lookup [{pubkey}] on the DHT.");
         let signed_packet = self.client.resolve(&pubkey).await?;
+        tracing::info!("Finished lookup [{pubkey}] on the DHT.");
         if signed_packet.is_none() {
             tracing::debug!("DHT lookup for [{pubkey}] failed. Nothing found.");
             return Ok(self.cache.add_not_found(pubkey).await);
