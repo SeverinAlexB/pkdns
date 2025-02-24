@@ -10,7 +10,7 @@ use crate::{
 async fn resolve_pkarr(uri: &str) -> (PkarrPacket, DateTime<Utc>) {
     let client = construct_pkarr_client();
     let pubkey: PublicKey = uri.try_into().expect("Should be valid pkarr public key.");
-    let res = client.resolve(&pubkey).await;
+    let res = client.resolve_most_recent(&pubkey).await;
     if res.is_none() {
         println!("Failed to find the packet.");
         return (PkarrPacket::empty(), DateTime::<Utc>::MIN_UTC);
