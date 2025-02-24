@@ -111,7 +111,7 @@ pub async fn cli_publish(matches: &ArgMatches) {
 
     print!("Hang on... {}", nts_to_chrono(packet.timestamp()));
     std::io::stdout().flush().unwrap();
-    let result = client.publish(&packet, Some(packet.timestamp())).await;
+    let result = client.publish(&packet, None).await;
     print!("\r");
     match result {
         Ok(_) => {
