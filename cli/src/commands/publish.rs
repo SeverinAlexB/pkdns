@@ -123,7 +123,7 @@ pub async fn cli_publish(matches: &ArgMatches) {
             println!("{} Successfully announced.", nts_to_chrono(packet.timestamp()))
         }
         Err(e) => {
-            println!("{} Error {}", packet.timestamp(), e.to_string())
+            println!("{} Error {}", nts_to_chrono(packet.timestamp()), e.to_string())
         }
     };
 }
