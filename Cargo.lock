@@ -1977,7 +1977,7 @@ dependencies = [
 
 [[package]]
 name = "pkdns-cli"
-version = "0.7.0-rc.3"
+version = "0.7.0-rc.3-pkarr-v3.5.0"
 dependencies = [
  "anyhow",
  "bytes",
