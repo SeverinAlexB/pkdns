@@ -129,6 +129,9 @@ impl PkarrResolver {
         from: Option<IpAddr>,
     ) -> Result<CacheItem, CustomHandlerError> {
         if let Some(cached) = self.cache.get(pubkey).await {
+            if cached.public_key().to_string() == "7fmjpcuuzf54hw18bsgi3zihzyh4awseeuq5tmojefaezjbd64cy" {
+                tracing::info!("7fmjp cached packet: {:?}", cached);
+            }
             let refresh_needed_in_s =
                 cached.next_refresh_needed_in_s(self.context.config.dns.min_ttl, self.context.config.dns.max_ttl);
 
@@ -166,6 +169,9 @@ impl PkarrResolver {
             if !self.is_refresh_needed(&cache) {
                 // Value got updated in the meantime while aquiring the lock.
                 tracing::trace!("Refresh for [{pubkey}] not needed. Value got updated in the meantime.");
+                if cache.public_key().to_string() == "7fmjpcuuzf54hw18bsgi3zihzyh4awseeuq5tmojefaezjbd64cy" {
+                    tracing::info!("7fmjp lookup_dht_and_cache cached packet: {:?}", cache);
+                }
                 return Ok(cache);
             }
         }
@@ -174,11 +180,17 @@ impl PkarrResolver {
         let signed_packet = self.client.resolve(&pubkey).await;
         if signed_packet.is_none() {
             tracing::debug!("DHT lookup for [{pubkey}] failed. Nothing found.");
+            if pubkey.to_string() == "7fmjpcuuzf54hw18bsgi3zihzyh4awseeuq5tmojefaezjbd64cy" {
+                tracing::info!("7fmjp  packet not found on the DHT");
+            }
             return Ok(self.cache.add_not_found(pubkey).await);
         };
 
         tracing::trace!("Refreshed cache for [{pubkey}].");
         let new_packet = signed_packet.unwrap();
+        if pubkey.to_string() == "7fmjpcuuzf54hw18bsgi3zihzyh4awseeuq5tmojefaezjbd64cy" {
+            tracing::info!("7fmjp new packet found on the DHT: {:?}", new_packet);
+        }
         Ok(self.cache.add_packet(new_packet).await)
     }
 
@@ -324,7 +336,7 @@ mod tests {
         packet.answers.push(record);
         let signed_packet = SignedPacket::new(&keypair, &packet.answers, Timestamp::now()).unwrap();
 
-        let client = Client::builder().no_relays().build().unwrap();
+        let client = Client::builder().build().unwrap();
         let result = client.publish(&signed_packet, None).await;
         result.expect("Should have published.");
     }
