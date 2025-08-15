@@ -158,7 +158,7 @@ impl DnsSocket {
         let packet_id = packet.id();
         if let Some(query) = self.pending.remove_by_forward_id(&packet_id, &from) {
             tracing::trace!("Received response from forward server. Send back to client.");
-            query.tx.send(packet.into()).unwrap();
+            let _ = query.tx.send(packet.into()); // TODO: Handle error properly. Sometimes the channel is broken.
             return Ok(());
         };
 
